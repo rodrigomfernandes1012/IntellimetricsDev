@@ -17,12 +17,7 @@ dic2 = []
 dic_whats = []
 dic_whats2 = []
 
-client = boto3.client(
-    service_name='s3',
-    aws_access_key_id='AKIA6GBMDHK6PS62WYCI',
-    aws_secret_access_key='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',
-    region_name='eu-west-2' # voce pode usar qualquer regiao
-)
+
 
 token = "8c4EF9vXi8TZe6581e0af85c25"
 
