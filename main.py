@@ -1,13 +1,18 @@
 # SERVER API
-from flask import Flask, jsonify, request
+import base64
+import datetime
+from flask import Flask, jsonify, request, redirect, url_for, Blueprint, render_template, send_from_directory
 from flask_cors import CORS
 import json
 import mysql.connector
 import requests
 import boto3
 import os
+import ast
+import time
 
-
+import pythonProject
+from Ponto.ponto import ponto_blueprint
 
 
 #Amazon
@@ -19,15 +24,9 @@ dic_whats2 = []
 
 
 
-token = "8c4EF9vXi8TZe6581e0af85c25"
+#token = "8c4EF9vXi8TZe6581e0af85c25"
 
-def conecta_bd():
-  conexao = mysql.connector.connect(
-      host='dbintellimetrics.c3kc6gou2fhz.us-west-2.rds.amazonaws.com',
-      user='admin',
-      password='IntelliMetr!c$',
-      database='DbIntelliMetrics')
-  return conexao
+
 
 
 def assinar_arquivo(arquivo):
@@ -46,20 +45,63 @@ def upload_file(file_name, bucket, object_name):
         logging.error(e)
         return False
     return True
-#bucket = "dbfilesintellimetrics"
-#object_name = "produtos/1235.jpg" #destino, devo informar a pasta e o nome que vai subir
-#arquivo = "vaoucher.jpg" #nome do arquivo original
-#upload_file(arquivo, bucket, object_name)
-
 
 
 ##DAQUI PRA BAIXO GERADOR DE API CONSULTAS NO BANCO
-##ATUALIZADO EM 04-05-2024
+##ATUALIZADO EM 29-05-2024
+
+
+
+
+#Selecionar registros da tabela DbIntelliMetrics.VwTbPosicaoAtual
+def Selecionar_VwTbPosicaoAtual():
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'select cdDispositivo, dsLat, dsLong, dtData, dtHora from DbIntelliMetrics.VwTbPosicaoAtual'
+    cursor.execute(comando)
+    resultado = cursor.fetchall()
+    cursor.close()
+    conexao.close()
+    return  resultado
+#FIM DA FUNÇÃO
+
+
+#Inserir registros da tabela DbIntelliMetrics.VwTbPosicaoAtual
+def Inserir_VwTbPosicaoAtual(dsLat, dsLong, dtData, dtHora):
+    conexao = pythonProject.conecta_bd()()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'insert into DbIntelliMetrics.VwTbPosicaoAtual ( dsLat, dsLong, dtData, dtHora ) values ("{dsLat}", "{dsLong}", "{dtData}", "{dtHora}")'
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
+#Deletar registros da tabela DbIntelliMetrics.VwTbPosicaoAtual
+def deletar_VwTbPosicaoAtual(Campo, Dado):
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'delete from DbIntelliMetrics.VwTbPosicaoAtual where {Campo}="{Dado}"  '
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
+#Alterar registros da tabela DbIntelliMetrics.VwTbPosicaoAtual
+def Alterar_VwTbPosicaoAtual(Campo, Dado, UpCampo, UpDado):
+    conexao = pythonProject.conecta_bd()
+    comando = f'update DbIntelliMetrics.VwTbPosicaoAtual set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
+
+
 
 
 #Selecionar registros da tabela DbIntelliMetrics.TbChamados
 def Selecionar_TbChamados():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdChamados, dtOperacao, dsTipo, dsDescricao, nrQtde, dsUser, dtRegistro from DbIntelliMetrics.TbChamados'
     cursor.execute(comando)
@@ -72,7 +114,7 @@ def Selecionar_TbChamados():
 
 #Inserir registros da tabela DbIntelliMetrics.TbChamados
 def Inserir_TbChamados(dtOperacao, dsTipo, dsDescricao, nrQtde, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbChamados ( dtOperacao, dsTipo, dsDescricao, nrQtde, dsUser, dtRegistro ) values ("{dtOperacao}", "{dsTipo}", "{dsDescricao}", "{nrQtde}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -82,7 +124,7 @@ def Inserir_TbChamados(dtOperacao, dsTipo, dsDescricao, nrQtde, dsUser, dtRegist
 
 #Deletar registros da tabela DbIntelliMetrics.TbChamados
 def deletar_TbChamados(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbChamados where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -92,7 +134,7 @@ def deletar_TbChamados(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbChamados
 def Alterar_TbChamados(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbChamados set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -101,7 +143,7 @@ def Alterar_TbChamados(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbCliente
 def Selecionar_TbCliente():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdCliente, dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbCliente'
     cursor.execute(comando)
@@ -114,7 +156,7 @@ def Selecionar_TbCliente():
 
 #Inserir registros da tabela DbIntelliMetrics.TbCliente
 def Inserir_TbCliente(dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbCliente ( dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsUser, dtRegistro ) values ("{dsNome}", "{nrCnpj}", "{nrIe}", "{nrInscMun}", "{dsLogradouro}", "{nrNumero}", "{dsComplemento}", "{dsBairro}", "{dsCep}", "{dsCidade}", "{dsUF}", "{dsObs}", "{cdStatus}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -124,7 +166,7 @@ def Inserir_TbCliente(dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, d
 
 #Deletar registros da tabela DbIntelliMetrics.TbCliente
 def deletar_TbCliente(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbCliente where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -134,7 +176,7 @@ def deletar_TbCliente(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbCliente
 def Alterar_TbCliente(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbCliente set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -143,7 +185,7 @@ def Alterar_TbCliente(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbDestinatario
 def Selecionar_TbDestinatario():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdDestinatario, dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsLat, dsLong, nrRaio, dsUser, dtRegistro from DbIntelliMetrics.TbDestinatario'
     cursor.execute(comando)
@@ -156,7 +198,7 @@ def Selecionar_TbDestinatario():
 
 #Inserir registros da tabela DbIntelliMetrics.TbDestinatario
 def Inserir_TbDestinatario(dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsLat, dsLong, nrRaio, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbDestinatario ( dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNumero, dsComplemento, dsBairro, dsCep, dsCidade, dsUF, dsObs, cdStatus, dsLat, dsLong, nrRaio, dsUser, dtRegistro ) values ("{dsNome}", "{nrCnpj}", "{nrIe}", "{nrInscMun}", "{dsLogradouro}", "{nrNumero}", "{dsComplemento}", "{dsBairro}", "{dsCep}", "{dsCidade}", "{dsUF}", "{dsObs}", "{cdStatus}", "{dsLat}", "{dsLong}", "{nrRaio}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -166,7 +208,7 @@ def Inserir_TbDestinatario(dsNome, nrCnpj, nrIe, nrInscMun, dsLogradouro, nrNume
 
 #Deletar registros da tabela DbIntelliMetrics.TbDestinatario
 def deletar_TbDestinatario(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbDestinatario where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -176,7 +218,7 @@ def deletar_TbDestinatario(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbDestinatario
 def Alterar_TbDestinatario(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbDestinatario set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -185,7 +227,7 @@ def Alterar_TbDestinatario(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbDispositivo
 def Selecionar_TbDispositivo():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdDispositivo, dsDispositivo, dsModelo, dsDescricao, dsObs, dsLayout, nrChip, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbDispositivo'
     cursor.execute(comando)
@@ -198,7 +240,7 @@ def Selecionar_TbDispositivo():
 
 #Inserir registros da tabela DbIntelliMetrics.TbDispositivo
 def Inserir_TbDispositivo(dsDispositivo, dsModelo, dsDescricao, dsObs, dsLayout, nrChip, cdStatus, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbDispositivo ( dsDispositivo, dsModelo, dsDescricao, dsObs, dsLayout, nrChip, cdStatus, dsUser, dtRegistro ) values ("{dsDispositivo}", "{dsModelo}", "{dsDescricao}", "{dsObs}", "{dsLayout}", "{nrChip}", "{cdStatus}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -208,7 +250,7 @@ def Inserir_TbDispositivo(dsDispositivo, dsModelo, dsDescricao, dsObs, dsLayout,
 
 #Deletar registros da tabela DbIntelliMetrics.TbDispositivo
 def deletar_TbDispositivo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbDispositivo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -218,7 +260,7 @@ def deletar_TbDispositivo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbDispositivo
 def Alterar_TbDispositivo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbDispositivo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -226,10 +268,13 @@ def Alterar_TbDispositivo(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros da tabela DbIntelliMetrics.TbImagens
-def Selecionar_TbImagens():
-    conexao = conecta_bd()
+def Selecionar_TbImagens(codigo):
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
-    comando = f'select cdImagens, dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro from DbIntelliMetrics.TbImagens'
+    if codigo == '0':
+        comando = f'select cdImagens, dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro from DbIntelliMetrics.TbImagens'
+    else:
+        comando = f'select cdImagens, dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro from DbIntelliMetrics.TbImagens where SUBSTRING_INDEX(cdCodigo, "-", 1) ={codigo}'
     cursor.execute(comando)
     resultado = cursor.fetchall()
     cursor.close()
@@ -239,10 +284,11 @@ def Selecionar_TbImagens():
 
 
 #Inserir registros da tabela DbIntelliMetrics.TbImagens
-def Inserir_TbImagens(dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro):
-    conexao = conecta_bd()
+def Inserir_TbImagens(dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro, cdProduto, nrImagem):
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
-    comando = f'insert into DbIntelliMetrics.TbImagens ( dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro ) values ("{dsCaminho}", "{cdCodigo}", "{cdTipo}", "{dsUser}", "{dtRegistro}")'
+    comando = f'insert into DbIntelliMetrics.TbImagens ( dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro, cdProduto, nrImagem ) values ("{dsCaminho}", "{cdCodigo}", "{cdTipo}", "{dsUser}", "{dtRegistro}", "{cdProduto}", "{nrImagem}")'
+    #print(comando)
     cursor.execute(comando)
     conexao.commit()
 #FIM DA FUNÇÃO
@@ -250,7 +296,7 @@ def Inserir_TbImagens(dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbImagens
 def deletar_TbImagens(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbImagens where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -260,7 +306,7 @@ def deletar_TbImagens(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbImagens
 def Alterar_TbImagens(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbImagens set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -269,7 +315,7 @@ def Alterar_TbImagens(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbPosicao
 def Selecionar_TbPosicao():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdPosicao, dsModelo, dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, nrSeq, dsArquivo, cdDispositivo, dsEndereco, dtRegistro from DbIntelliMetrics.TbPosicao'
     cursor.execute(comando)
@@ -282,7 +328,7 @@ def Selecionar_TbPosicao():
 
 #Inserir registros da tabela DbIntelliMetrics.TbPosicao
 def Inserir_TbPosicao(dsModelo, dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, nrSeq, dsArquivo, cdDispositivo, dsEndereco, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbPosicao ( dsModelo, dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, nrSeq, dsArquivo, cdDispositivo, dsEndereco, dsUser, dtRegistro ) values ("{dsModelo}", "{dtData}", "{dtHora}", "{dsLat}", "{dsLong}", "{nrTemp}", "{nrBat}", "{nrSeq}", "{dsArquivo}", "{cdDispositivo}", "{dsEndereco}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -292,7 +338,7 @@ def Inserir_TbPosicao(dsModelo, dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, nr
 
 #Deletar registros da tabela DbIntelliMetrics.TbPosicao
 def deletar_TbPosicao(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbPosicao where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -302,7 +348,7 @@ def deletar_TbPosicao(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbPosicao
 def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbPosicao set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -310,31 +356,88 @@ def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros da tabela DbIntelliMetrics.TbProduto
-def Selecionar_TbProduto():
-    conexao = conecta_bd()
+def Selecionar_TbProduto(codigo):
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
-    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbProduto'
+    # Consulta os dados da tabela produtos
+    comando = f"SELECT cdProduto, dsDescricao, dsNome, nrAlt, nrCodigo, nrComp, nrLarg, nrQtde, dsStatus FROM VwTbProdutoTotalStaus where cdProduto = {codigo}"
     cursor.execute(comando)
-    resultado = cursor.fetchall()
+    produtos = cursor.fetchall()
+
+    # Array para armazenar os resultados
+    produtos_json = []
+
+    # Percorre os produtos
+    for produto in produtos:
+        cdProduto, dsDescricao, dsNome, nrAlt, nrCodigo, nrComp, nrLarg, nrQtde, dsStatus = produto
+
+        # Consulta os dados da tabela imagens para o produto atual
+        comando = f"SELECT cdCodigo, dsCaminho  FROM TbImagens WHERE cdProduto = {codigo}"
+        # query = "SELECT cdCodigo, dsCaminho  FROM TbImagens WHERE cdImagens = 26"
+        cursor.execute(comando)
+        imagens = cursor.fetchall()
+
+
+        # Array para armazenar as imagens
+        imagens_array = []
+
+        # Percorre as imagens e adiciona ao array
+        for imagem in imagens:
+            cdCodigo, dsCaminho = imagem
+            imagens_array.append({
+                'cdImagens': cdCodigo,
+                'dsCaminho': dsCaminho
+            })
+
+        # Cria um dicionário com os dados do produto e o array de imagens
+        produto_json = {
+            'cdProduto': cdProduto,
+            'dsDescricao': dsDescricao,
+            'dsNome': dsNome,
+            'nrAlt': nrAlt,
+            'nrCodigo': nrCodigo,
+            'nrComp': nrComp,
+            'nrLarg': nrLarg,
+            'nrQtde': nrQtde,
+            'dsStatus': dsStatus,
+            'imagens': imagens_array
+        }
+        #produtos_json.append(produto_json)
+        produtos_json.append(produto)
+        produtos_json.append(imagens_array)
+
+    # Fecha a conexão com o banco de dados
     cursor.close()
     conexao.close()
-    return  resultado
+
+
+    ##if codigo == "0":
+    ##    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbProduto'
+    ##else:
+    ##    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbProduto where cdProduto = "{codigo}" '
+
+    ##cursor.execute(comando)
+    ##resultado = cursor.fetchall()
+    ##cursor.close()
+    ##conexao.close()
+    return jsonify(produtos_json)
 #FIM DA FUNÇÃO
 
 
 #Inserir registros da tabela DbIntelliMetrics.TbProduto
 def Inserir_TbProduto(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbProduto ( dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro ) values ("{dsNome}", "{dsDescricao}", "{nrCodigo}", "{nrLarg}", "{nrComp}", "{nrAlt}", "{cdStatus}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
     conexao.commit()
+    return cursor.lastrowid
 #FIM DA FUNÇÃO
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbProduto
 def deletar_TbProduto(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbProduto where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -344,7 +447,7 @@ def deletar_TbProduto(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbProduto
 def Alterar_TbProduto(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbProduto set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -353,7 +456,7 @@ def Alterar_TbProduto(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbRelacionamento
 def Selecionar_TbRelacionamento():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdRelacionamento, cdPai, cdFilho, cdTipo, dsDescricao, cdStatus, dsUser, dtRegistro from DbIntelliMetrics.TbRelacionamento'
     cursor.execute(comando)
@@ -366,7 +469,7 @@ def Selecionar_TbRelacionamento():
 
 #Inserir registros da tabela DbIntelliMetrics.TbRelacionamento
 def Inserir_TbRelacionamento(cdPai, cdFilho, cdTipo, dsDescricao, cdStatus, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbRelacionamento ( cdPai, cdFilho, cdTipo, dsDescricao, cdStatus, dsUser, dtRegistro ) values ("{cdPai}", "{cdFilho}", "{cdTipo}", "{dsDescricao}", "{cdStatus}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -376,7 +479,7 @@ def Inserir_TbRelacionamento(cdPai, cdFilho, cdTipo, dsDescricao, cdStatus, dsUs
 
 #Deletar registros da tabela DbIntelliMetrics.TbRelacionamento
 def deletar_TbRelacionamento(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbRelacionamento where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -386,7 +489,7 @@ def deletar_TbRelacionamento(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbRelacionamento
 def Alterar_TbRelacionamento(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbRelacionamento set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -395,7 +498,7 @@ def Alterar_TbRelacionamento(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbSensor
 def Selecionar_TbSensor():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdSensor, dsNome, cdTipo, dsDescricao, cdUnidade, nrUnidadeIni, nrUnidadeFim, dsUser, dtRegistro from DbIntelliMetrics.TbSensor'
     cursor.execute(comando)
@@ -408,7 +511,7 @@ def Selecionar_TbSensor():
 
 #Inserir registros da tabela DbIntelliMetrics.TbSensor
 def Inserir_TbSensor(dsNome, cdTipo, dsDescricao, cdUnidade, nrUnidadeIni, nrUnidadeFim, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbSensor ( dsNome, cdTipo, dsDescricao, cdUnidade, nrUnidadeIni, nrUnidadeFim, dsUser, dtRegistro ) values ("{dsNome}", "{cdTipo}", "{dsDescricao}", "{cdUnidade}", "{nrUnidadeIni}", "{nrUnidadeFim}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -418,7 +521,7 @@ def Inserir_TbSensor(dsNome, cdTipo, dsDescricao, cdUnidade, nrUnidadeIni, nrUni
 
 #Deletar registros da tabela DbIntelliMetrics.TbSensor
 def deletar_TbSensor(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbSensor where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -428,7 +531,7 @@ def deletar_TbSensor(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbSensor
 def Alterar_TbSensor(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbSensor set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -437,7 +540,7 @@ def Alterar_TbSensor(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbStatus
 def Selecionar_TbStatus():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdStatus, dsStatus, dsUser, dtRegistro from DbIntelliMetrics.TbStatus'
     cursor.execute(comando)
@@ -450,7 +553,7 @@ def Selecionar_TbStatus():
 
 #Inserir registros da tabela DbIntelliMetrics.TbStatus
 def Inserir_TbStatus(dsStatus, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbStatus ( dsStatus, dsUser, dtRegistro ) values ("{dsStatus}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -460,7 +563,7 @@ def Inserir_TbStatus(dsStatus, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbStatus
 def deletar_TbStatus(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbStatus where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -470,7 +573,7 @@ def deletar_TbStatus(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbStatus
 def Alterar_TbStatus(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbStatus set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -479,7 +582,7 @@ def Alterar_TbStatus(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbTag
 def Selecionar_TbTag():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdTag, dsDescricao, dsConteudo, dsUser, dtRegistro from DbIntelliMetrics.TbTag'
     cursor.execute(comando)
@@ -492,7 +595,7 @@ def Selecionar_TbTag():
 
 #Inserir registros da tabela DbIntelliMetrics.TbTag
 def Inserir_TbTag(dsDescricao, dsConteudo, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbTag ( dsDescricao, dsConteudo, dsUser, dtRegistro ) values ("{dsDescricao}", "{dsConteudo}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -502,7 +605,7 @@ def Inserir_TbTag(dsDescricao, dsConteudo, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbTag
 def deletar_TbTag(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTag where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -512,7 +615,7 @@ def deletar_TbTag(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTag
 def Alterar_TbTag(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTag set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -521,7 +624,7 @@ def Alterar_TbTag(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbTicket
 def Selecionar_TbTicket():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdTicket, dtOperacao, dsAtendimento, nrAbertos, nrFechados, nrPendentes, dsUser, dtRegistro from DbIntelliMetrics.TbTicket'
     cursor.execute(comando)
@@ -534,7 +637,7 @@ def Selecionar_TbTicket():
 
 #Inserir registros da tabela DbIntelliMetrics.TbTicket
 def Inserir_TbTicket(dtOperacao, dsAtendimento, nrAbertos, nrFechados, nrPendentes, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbTicket ( dtOperacao, dsAtendimento, nrAbertos, nrFechados, nrPendentes, dsUser, dtRegistro ) values ("{dtOperacao}", "{dsAtendimento}", "{nrAbertos}", "{nrFechados}", "{nrPendentes}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -544,7 +647,7 @@ def Inserir_TbTicket(dtOperacao, dsAtendimento, nrAbertos, nrFechados, nrPendent
 
 #Deletar registros da tabela DbIntelliMetrics.TbTicket
 def deletar_TbTicket(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTicket where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -554,7 +657,7 @@ def deletar_TbTicket(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTicket
 def Alterar_TbTicket(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTicket set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -563,7 +666,7 @@ def Alterar_TbTicket(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbTicketResumo
 def Selecionar_TbTicketResumo():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdTicketResumo, dtOperacao, dsAtendimento, dsNaoAtribuido, dsSemResolucao, dsAtualizado, dsPendente, dsResolvido, dsUser, dtRegistro from DbIntelliMetrics.TbTicketResumo'
     cursor.execute(comando)
@@ -576,7 +679,7 @@ def Selecionar_TbTicketResumo():
 
 #Inserir registros da tabela DbIntelliMetrics.TbTicketResumo
 def Inserir_TbTicketResumo(dtOperacao, dsAtendimento, dsNaoAtribuido, dsSemResolucao, dsAtualizado, dsPendente, dsResolvido, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbTicketResumo ( dtOperacao, dsAtendimento, dsNaoAtribuido, dsSemResolucao, dsAtualizado, dsPendente, dsResolvido, dsUser, dtRegistro ) values ("{dtOperacao}", "{dsAtendimento}", "{dsNaoAtribuido}", "{dsSemResolucao}", "{dsAtualizado}", "{dsPendente}", "{dsResolvido}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -586,7 +689,7 @@ def Inserir_TbTicketResumo(dtOperacao, dsAtendimento, dsNaoAtribuido, dsSemResol
 
 #Deletar registros da tabela DbIntelliMetrics.TbTicketResumo
 def deletar_TbTicketResumo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTicketResumo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -596,7 +699,7 @@ def deletar_TbTicketResumo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTicketResumo
 def Alterar_TbTicketResumo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTicketResumo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -605,7 +708,7 @@ def Alterar_TbTicketResumo(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbTipo
 def Selecionar_TbTipo():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdTipo, dsDescricao, dsUser, dtRegistro from DbIntelliMetrics.TbTipo'
     cursor.execute(comando)
@@ -618,7 +721,7 @@ def Selecionar_TbTipo():
 
 #Inserir registros da tabela DbIntelliMetrics.TbTipo
 def Inserir_TbTipo(dsDescricao, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbTipo ( dsDescricao, dsUser, dtRegistro ) values ("{dsDescricao}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -628,7 +731,7 @@ def Inserir_TbTipo(dsDescricao, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbTipo
 def deletar_TbTipo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTipo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -638,7 +741,7 @@ def deletar_TbTipo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTipo
 def Alterar_TbTipo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTipo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -647,7 +750,7 @@ def Alterar_TbTipo(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbUnidade
 def Selecionar_TbUnidade():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdUnidade, dsUnidade, dsSimbolo, dsUser, dtRegistro from DbIntelliMetrics.TbUnidade'
     cursor.execute(comando)
@@ -660,7 +763,7 @@ def Selecionar_TbUnidade():
 
 #Inserir registros da tabela DbIntelliMetrics.TbUnidade
 def Inserir_TbUnidade(dsUnidade, dsSimbolo, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbUnidade ( dsUnidade, dsSimbolo, dsUser, dtRegistro ) values ("{dsUnidade}", "{dsSimbolo}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -670,7 +773,7 @@ def Inserir_TbUnidade(dsUnidade, dsSimbolo, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbUnidade
 def deletar_TbUnidade(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbUnidade where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -680,7 +783,7 @@ def deletar_TbUnidade(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbUnidade
 def Alterar_TbUnidade(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbUnidade set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -689,7 +792,7 @@ def Alterar_TbUnidade(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbUsuario
 def Selecionar_TbUsuario():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdUsuario, dsNome, dsLogin, dsSenha, cdPerfil, dsUser, dtRegistro from DbIntelliMetrics.TbUsuario'
     cursor.execute(comando)
@@ -702,7 +805,7 @@ def Selecionar_TbUsuario():
 
 #Inserir registros da tabela DbIntelliMetrics.TbUsuario
 def Inserir_TbUsuario(dsNome, dsLogin, dsSenha, cdPerfil, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbUsuario ( dsNome, dsLogin, dsSenha, cdPerfil, dsUser, dtRegistro ) values ("{dsNome}", "{dsLogin}", "{dsSenha}", "{cdPerfil}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -712,7 +815,7 @@ def Inserir_TbUsuario(dsNome, dsLogin, dsSenha, cdPerfil, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbUsuario
 def deletar_TbUsuario(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbUsuario where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -722,7 +825,7 @@ def deletar_TbUsuario(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbUsuario
 def Alterar_TbUsuario(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbUsuario set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -731,7 +834,7 @@ def Alterar_TbUsuario(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbVisita
 def Selecionar_TbVisita():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdVisita, cdCliente, cdVisitante, dtData, dsUser, dtRegistro from DbIntelliMetrics.TbVisita'
     cursor.execute(comando)
@@ -744,7 +847,7 @@ def Selecionar_TbVisita():
 
 #Inserir registros da tabela DbIntelliMetrics.TbVisita
 def Inserir_TbVisita(cdCliente, cdVisitante, dtData, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbVisita ( cdCliente, cdVisitante, dtData, dsUser, dtRegistro ) values ("{cdCliente}", "{cdVisitante}", "{dtData}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -754,7 +857,7 @@ def Inserir_TbVisita(cdCliente, cdVisitante, dtData, dsUser, dtRegistro):
 
 #Deletar registros da tabela DbIntelliMetrics.TbVisita
 def deletar_TbVisita(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbVisita where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -764,7 +867,7 @@ def deletar_TbVisita(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbVisita
 def Alterar_TbVisita(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbVisita set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -773,7 +876,7 @@ def Alterar_TbVisita(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbVisitante
 def Selecionar_TbVisitante():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select cdVisitante, dsNome, nrTelefone, nrDocumento, dsEmail, dsUser, dtRegistro from DbIntelliMetrics.TbVisitante'
     cursor.execute(comando)
@@ -786,7 +889,7 @@ def Selecionar_TbVisitante():
 
 #Inserir registros da tabela DbIntelliMetrics.TbVisitante
 def Inserir_TbVisitante(dsNome, nrTelefone, nrDocumento, dsEmail, dsUser, dtRegistro):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.TbVisitante ( dsNome, nrTelefone, nrDocumento, dsEmail, dsUser, dtRegistro ) values ("{dsNome}", "{nrTelefone}", "{nrDocumento}", "{dsEmail}", "{dsUser}", "{dtRegistro}")'
     cursor.execute(comando)
@@ -796,7 +899,7 @@ def Inserir_TbVisitante(dsNome, nrTelefone, nrDocumento, dsEmail, dsUser, dtRegi
 
 #Deletar registros da tabela DbIntelliMetrics.TbVisitante
 def deletar_TbVisitante(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbVisitante where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -806,7 +909,7 @@ def deletar_TbVisitante(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbVisitante
 def Alterar_TbVisitante(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbVisitante set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -815,7 +918,7 @@ def Alterar_TbVisitante(Campo, Dado, UpCampo, UpDado):
 
 #Selecionar registros da tabela DbIntelliMetrics.TbPosicao
 def Selecionar_TbPosicao():
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'select dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, dsEndereco from DbIntelliMetrics.TbPosicao'
     cursor.execute(comando)
@@ -830,7 +933,7 @@ def Selecionar_TbPosicao():
 
 #Deletar registros da tabela DbIntelliMetrics.TbPosicao
 def deletar_TbPosicao(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbPosicao where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -840,7 +943,7 @@ def deletar_TbPosicao(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbPosicao
 def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbPosicao set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -848,10 +951,13 @@ def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros da tabela DbIntelliMetrics.TbProdutoTipo
-def Selecionar_VwTbProdutoTipo():
-    conexao = conecta_bd()
+def Selecionar_VwTbProdutoTipo(codigo):
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
-    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo from DbIntelliMetrics.VwTbProdutoTipo'
+    if codigo == "0":
+        comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo from DbIntelliMetrics.VwTbProdutoTipo'
+    else:
+        comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo from DbIntelliMetrics.VwTbProdutoTipo where cdProduto = "{codigo}"'
     cursor.execute(comando)
     resultado = cursor.fetchall()
     cursor.close()
@@ -862,7 +968,7 @@ def Selecionar_VwTbProdutoTipo():
 
 #Inserir registros da tabela DbIntelliMetrics.VwTbProdutoTipo
 def Inserir_VwTbProdutoTipo(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.VwTbProdutoTipo ( dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo ) values ("{dsNome}", "{dsDescricao}", "{nrCodigo}", "{nrLarg}", "{nrComp}", "{nrAlt}", "{cdStatus}", "{cdDispositivo}", "{dsDispositivo}", "{dsModelo}", "{DescDispositivo}", "{dsObs}", "{dsLayout}", "{nrChip}", "{StatusDispositivo}")'
     cursor.execute(comando)
@@ -872,7 +978,7 @@ def Inserir_VwTbProdutoTipo(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt
 
 #Deletar registros da tabela DbIntelliMetrics.VwTbProdutoTipo
 def deletar_VwTbProdutoTipo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.VwTbProdutoTipo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -882,7 +988,7 @@ def deletar_VwTbProdutoTipo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.VwTbProdutoTipo
 def Alterar_VwTbProdutoTipo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.VwTbProdutoTipo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -890,25 +996,108 @@ def Alterar_VwTbProdutoTipo(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros da tabela DbIntelliMetrics.VwTbProdutoTotalStaus
-def Selecionar_VwTbProdutoTotalStaus():
-    conexao = conecta_bd()
-    cursor = conexao.cursor(dictionary=True)
-    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, Status, nrQtde from DbIntelliMetrics.VwTbProdutoTotalStaus'
-    cursor.execute(comando)
-    resultado = cursor.fetchall()
-    cursor.close()
-    conexao.close()
-    return  resultado
+def Selecionar_VwTbProdutoTotalStaus(codigo):
+    #conexao = conecta_bd()
+    #cursor = conexao.cursor(dictionary=True)
+    #if codigo == "0":
+    #    comando = f'select Status, nrQtde from DbIntelliMetrics.VwTbProdutoTotalStaus order by Status'
+    #else:
+    #    comando = f'select Status, nrQtde from DbIntelliMetrics.VwTbProdutoTotalStaus where cdProduto = {codigo} order by Status'
+    #cursor.execute(comando)
+    #resultado = cursor.fetchall()
+    #cursor.close()
+    #conexao.close()
+    #return  resultado
+    try:
+        # Conecta ao banco de dados
+        conexao = pythonProject.conecta_bd()
+        cursor = conexao.cursor()  # (dictionary=True)
+
+        # Consulta os dados da tabela produtos
+        if codigo == "0":
+            comando = f"SELECT cdProduto, dsDescricao, dsNome, nrAlt, nrCodigo, nrComp, nrLarg FROM TbProduto"
+        else:
+            comando = f"SELECT cdProduto, dsDescricao, dsNome, nrAlt, nrCodigo, nrComp, nrLarg FROM TbProduto where cdProduto = {codigo}"
+        cursor.execute(comando)
+        produtos = cursor.fetchall()
+
+        # Array para armazenar os resultados
+        produtos_json = []
+
+        # Percorre os produtos
+        for produto in produtos:
+            cdProduto, dsDescricao, dsNome, nrAlt, nrCodigo, nrComp, nrLarg = produto
+            codigo = cdProduto
+            # Status
+            # Consulta os dados da tabela imagens para o produto atual
+            comando = f"SELECT dsStatus, nrQtde  FROM VwTbProdutoTotalStaus WHERE cdProduto = {codigo}"
+            cursor.execute(comando)
+            status = cursor.fetchall()
+
+            # Array para armazenar as imagens
+            status_array = []
+
+            # Percorre as imagens e adiciona ao array
+            for statu in status:
+                dsStatus, nrQtde = statu
+                status_array.append({
+                    'dsStatus': dsStatus,
+                    'nrQtde': nrQtde
+                })
+            # fim Status
+
+            # Consulta os dados da tabela imagens para o produto atual
+            comando = f"SELECT cdCodigo, dsCaminho  FROM TbImagens WHERE cdProduto = {codigo}"
+            cursor.execute(comando)
+            imagens = cursor.fetchall()
+            # Array para armazenar as imagens
+            imagens_array = []
+
+            # Percorre as imagens e adiciona ao array
+            for imagem in imagens:
+                cdCodigo, dsCaminho = imagem
+                imagens_array.append({
+                    'cdImagens': cdCodigo,
+                    'dsCaminho': dsCaminho
+                })
+
+            # Cria um dicionário com os dados do produto e o array de imagens
+            produto_json = {
+                'cdProduto': cdProduto,
+                'dsDescricao': dsDescricao,
+                'dsNome': dsNome,
+                'nrAlt': nrAlt,
+                'nrCodigo': nrCodigo,
+                'nrComp': nrComp,
+                'nrLarg': nrLarg,
+                'imagens': imagens_array,
+                'status': status_array
+            }
+            produtos_json.append(produto_json)
+
+        # Fecha a conexão com o banco de dados
+        cursor.close()
+        conexao.close()
+        return jsonify(produtos_json)
+
+    except mysql.connector.Error as error:
+        return jsonify({'error': f'Erro ao acessar o banco de dados: {error}'})
+
+
 #FIM DA FUNÇÃO
 
-def Selecionar_VwTbProdutoTotal():
-    conexao = conecta_bd()
+def Selecionar_VwTbProdutoTotal(codigo):
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
-    comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, nrQtde from DbIntelliMetrics.VwTbProdutoTotal'
+    if codigo == "0":
+        comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, nrQtde from DbIntelliMetrics.VwTbProdutoTotal'
+    else:
+        comando = f'select cdProduto, dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, nrQtde from DbIntelliMetrics.VwTbProdutoTotal where cdProduto = {codigo}'
     cursor.execute(comando)
     resultado = cursor.fetchall()
     cursor.close()
     conexao.close()
+    print(comando)
     return  resultado
 #FIM DA FUNÇÃO
 
@@ -916,7 +1105,7 @@ def Selecionar_VwTbProdutoTotal():
 
 #Inserir registros da tabela DbIntelliMetrics.VwTbProdutoTotalStaus
 def Inserir_VwTbProdutoTotalStaus(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, Status, nrQtde):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'insert into DbIntelliMetrics.VwTbProdutoTotalStaus ( dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, Status, nrQtde ) values ("{dsNome}", "{dsDescricao}", "{nrCodigo}", "{nrLarg}", "{nrComp}", "{nrAlt}", "{Status}", "{nrQtde}")'
     cursor.execute(comando)
@@ -926,7 +1115,7 @@ def Inserir_VwTbProdutoTotalStaus(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp,
 
 #Deletar registros da tabela DbIntelliMetrics.VwTbProdutoTotalStaus
 def deletar_VwTbProdutoTotalStaus(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.VwTbProdutoTotalStaus where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -936,17 +1125,65 @@ def deletar_VwTbProdutoTotalStaus(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.VwTbProdutoTotalStaus
 def Alterar_VwTbProdutoTotalStaus(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.VwTbProdutoTotalStaus set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
 #FIM DA FUNÇÃO
 
+#Selecionar registros da tabela DbIntelliMetrics.TbFuncionario
+def Selecionar_TbFuncionario():
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'select cdFuncionario, dsBairro, dsCidade, dsComplemento, dsFuncao, dsLogradouro, dsNomeEmpregado, dsNumCasa, dsUser, dtRegistro, nrCodEmpregado, TbFuncionariocol from DbIntelliMetrics.TbFuncionario'
+    cursor.execute(comando)
+    resultado = cursor.fetchall()
+    cursor.close()
+    conexao.close()
+    return  resultado
+#FIM DA FUNÇÃO
+
+
+#Inserir registros da tabela DbIntelliMetrics.TbFuncionario
+def Inserir_TbFuncionario(dsBairro, dsCidade, dsComplemento, dsFuncao, dsLogradouro, dsNomeEmpregado, dsNumCasa, dsUser, dtRegistro, nrCodEmpregado, TbFuncionariocol):
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'insert into DbIntelliMetrics.TbFuncionario ( dsBairro, dsCidade, dsComplemento, dsFuncao, dsLogradouro, dsNomeEmpregado, dsNumCasa, dsUser, dtRegistro, nrCodEmpregado, TbFuncionariocol ) values ("{dsBairro}", "{dsCidade}", "{dsComplemento}", "{dsFuncao}", "{dsLogradouro}", "{dsNomeEmpregado}", "{dsNumCasa}", "{dsUser}", "{dtRegistro}", "{nrCodEmpregado}", "{TbFuncionariocol}")'
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
+#Deletar registros da tabela DbIntelliMetrics.TbFuncionario
+def deletar_TbFuncionario(Campo, Dado):
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    comando = f'delete from DbIntelliMetrics.TbFuncionario where {Campo}="{Dado}"  '
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
+#Alterar registros da tabela DbIntelliMetrics.TbFuncionario
+def Alterar_TbFuncionario(Campo, Dado, UpCampo, UpDado):
+    conexao = pythonProject.conecta_bd()
+    comando = f'update DbIntelliMetrics.TbFuncionario set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
+    cursor.execute(comando)
+    conexao.commit()
+#FIM DA FUNÇÃO
+
+
 ## FIM DAS CONSULTAS NO BANCO
 
 
 app = Flask(__name__)  # cria o site
+app.json.sort_keys = False
 CORS(app, resources={r"*": {"origins": "*"}})
+
+app.register_blueprint(ponto_blueprint)
+
+
+
 
 ##COMECA A API GERADA AUTOMATICAMENTE
 
@@ -981,7 +1218,7 @@ def post_Chamados():
 
 #Deletar registros da tabela DbIntelliMetrics.TbChamados
 def deletar_TbChamados(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbChamados where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -991,7 +1228,7 @@ def deletar_TbChamados(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbChamados
 def Alterar_TbChamados(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbChamados set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1036,7 +1273,7 @@ def post_Cliente():
 
 #Deletar registros da tabela DbIntelliMetrics.TbCliente
 def deletar_TbCliente(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbCliente where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1046,7 +1283,7 @@ def deletar_TbCliente(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbCliente
 def Alterar_TbCliente(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbCliente set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1094,7 +1331,7 @@ def post_Destinatario():
 
 #Deletar registros da tabela DbIntelliMetrics.TbDestinatario
 def deletar_TbDestinatario(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbDestinatario where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1104,7 +1341,7 @@ def deletar_TbDestinatario(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbDestinatario
 def Alterar_TbDestinatario(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbDestinatario set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1136,14 +1373,14 @@ def post_Dispositivo():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbDispositivo(dsDispositivo, dsModelo, dsDescricao, dsObs, dsLayout, nrChip, cdStatus, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbDispositivo
 def deletar_TbDispositivo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbDispositivo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1153,7 +1390,7 @@ def deletar_TbDispositivo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbDispositivo
 def Alterar_TbDispositivo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbDispositivo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1162,9 +1399,9 @@ def Alterar_TbDispositivo(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros no EndPoint Imagens
-@app.route("/Imagens")
-def get_Imagens():
-    resultado = Selecionar_TbImagens()
+@app.route("/Imagens/<codigo>")
+def get_Imagens(codigo):
+    resultado = Selecionar_TbImagens(codigo)
     return resultado
 
 #FIM DA FUNÇÃO
@@ -1180,15 +1417,17 @@ def post_Imagens():
     cdTipo = payload ['cdTipo']
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
-    Inserir_TbImagens(dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    cdProduto = payload ['cdProduto']
+    nrImagem = payload ['nrImagem']
+    Inserir_TbImagens(dsCaminho, cdCodigo, cdTipo, dsUser, dtRegistro, cdProduto, nrImagem)
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbImagens
 def deletar_TbImagens(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbImagens where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1198,7 +1437,7 @@ def deletar_TbImagens(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbImagens
 def Alterar_TbImagens(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbImagens set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1234,14 +1473,14 @@ def post_Posicao():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbPosicao(dsModelo, dtData, dtHora, dsLat, dsLong, nrTemp, nrBat, nrSeq, dsArquivo, cdDispositivo, dsEndereco, dsUser ,dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbPosicao
 def deletar_TbPosicao(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbPosicao where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1251,7 +1490,7 @@ def deletar_TbPosicao(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbPosicao
 def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbPosicao set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1260,14 +1499,15 @@ def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros no EndPoint Produto
-@app.route("/Produto")
-def get_Produto():
-    resultado = Selecionar_TbProduto()
+@app.route("/Produto/<codigo>")
+def get_Produto(codigo):
+    resultado = Selecionar_TbProduto(codigo)
     return resultado
 
 #FIM DA FUNÇÃO
 
 
+cd = []
 
 #Inserir registros no EndPoint Produto
 @app.route('/Produto', methods=['POST'])
@@ -1282,15 +1522,15 @@ def post_Produto():
     cdStatus = payload ['cdStatus']
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
-    Inserir_TbProduto(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    cd = (Inserir_TbProduto(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, dsUser, dtRegistro))
+    return jsonify(cd)
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbProduto
 def deletar_TbProduto(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbProduto where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1300,7 +1540,7 @@ def deletar_TbProduto(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbProduto
 def Alterar_TbProduto(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbProduto set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1330,14 +1570,14 @@ def post_Relacionamento():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbRelacionamento(cdPai, cdFilho, cdTipo, dsDescricao, cdStatus, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbRelacionamento
 def deletar_TbRelacionamento(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbRelacionamento where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1347,7 +1587,7 @@ def deletar_TbRelacionamento(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbRelacionamento
 def Alterar_TbRelacionamento(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbRelacionamento set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1378,14 +1618,14 @@ def post_Sensor():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbSensor(dsNome, cdTipo, dsDescricao, cdUnidade, nrUnidadeIni, nrUnidadeFim, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbSensor
 def deletar_TbSensor(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbSensor where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1395,7 +1635,7 @@ def deletar_TbSensor(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbSensor
 def Alterar_TbSensor(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbSensor set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1421,14 +1661,14 @@ def post_Status():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbStatus(dsStatus, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbStatus
 def deletar_TbStatus(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbStatus where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1438,7 +1678,7 @@ def deletar_TbStatus(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbStatus
 def Alterar_TbStatus(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbStatus set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1465,14 +1705,14 @@ def post_Tag():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbTag(dsDescricao, dsConteudo, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbTag
 def deletar_TbTag(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTag where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1482,7 +1722,7 @@ def deletar_TbTag(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTag
 def Alterar_TbTag(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTag set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1512,14 +1752,14 @@ def post_Ticket():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbTicket(dtOperacao, dsAtendimento, nrAbertos, nrFechados, nrPendentes, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbTicket
 def deletar_TbTicket(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTicket where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1529,7 +1769,7 @@ def deletar_TbTicket(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTicket
 def Alterar_TbTicket(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTicket set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1561,14 +1801,14 @@ def post_TicketResumo():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbTicketResumo(dtOperacao, dsAtendimento, dsNaoAtribuido, dsSemResolucao, dsAtualizado, dsPendente, dsResolvido, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbTicketResumo
 def deletar_TbTicketResumo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTicketResumo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1578,7 +1818,7 @@ def deletar_TbTicketResumo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTicketResumo
 def Alterar_TbTicketResumo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTicketResumo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1594,7 +1834,18 @@ def get_Tipo():
 
 #FIM DA FUNÇÃO
 
-
+def Selecionar_NrImagensMaior(codigo):
+    conexao = pythonProject.conecta_bd()
+    cursor = conexao.cursor(dictionary=True)
+    if codigo == '0':
+        comando = f'select  SUBSTRING_INDEX(cdCodigo, "-",1) as cdProduto, max(SUBSTRING_INDEX(SUBSTRING_INDEX(cdCodigo, "-",-1),".",1)) as nrMaior from DbIntelliMetrics.TbImagens where cdTipo = 10  group by cdProduto order by cdProduto'
+    else:
+        comando = f'select  SUBSTRING_INDEX(cdCodigo, "-",1) as cdProduto, max(SUBSTRING_INDEX(SUBSTRING_INDEX(cdCodigo, "-",-1),".",1)) as nrMaior from DbIntelliMetrics.TbImagens where cdTipo = 10 and cdCodigo = {codigo} group by cdProduto'
+    cursor.execute(comando)
+    resultado = cursor.fetchall()
+    cursor.close()
+    conexao.close()
+    return  resultado
 
 #Inserir registros no EndPoint Tipo
 @app.route('/Tipo', methods=['POST'])
@@ -1604,14 +1855,14 @@ def post_Tipo():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbTipo(dsDescricao, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbTipo
 def deletar_TbTipo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbTipo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1621,7 +1872,7 @@ def deletar_TbTipo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbTipo
 def Alterar_TbTipo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbTipo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1648,14 +1899,14 @@ def post_Unidade():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbUnidade(dsUnidade, dsSimbolo, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbUnidade
 def deletar_TbUnidade(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbUnidade where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1665,7 +1916,7 @@ def deletar_TbUnidade(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbUnidade
 def Alterar_TbUnidade(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbUnidade set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1694,14 +1945,14 @@ def post_Usuario():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbUsuario(dsNome, dsLogin, dsSenha, cdPerfil, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbUsuario
 def deletar_TbUsuario(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbUsuario where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1711,7 +1962,7 @@ def deletar_TbUsuario(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbUsuario
 def Alterar_TbUsuario(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbUsuario set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1739,14 +1990,14 @@ def post_Visita():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbVisita(cdCliente, cdVisitante, dtData, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbVisita
 def deletar_TbVisita(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbVisita where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1756,7 +2007,7 @@ def deletar_TbVisita(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbVisita
 def Alterar_TbVisita(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbVisita set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1785,14 +2036,14 @@ def post_Visitante():
     dsUser = payload ['dsUser']
     dtRegistro = payload ['dtRegistro']
     Inserir_TbVisitante(dsNome, nrTelefone, nrDocumento, dsEmail, dsUser, dtRegistro)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.TbVisitante
 def deletar_TbVisitante(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbVisitante where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1802,7 +2053,7 @@ def deletar_TbVisitante(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbVisitante
 def Alterar_TbVisitante(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbVisitante set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1826,7 +2077,7 @@ def get_TbPosicao():
 
 #Deletar registros da tabela DbIntelliMetrics.TbPosicao
 def deletar_TbPosicao(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.TbPosicao where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1836,7 +2087,7 @@ def deletar_TbPosicao(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.TbPosicao
 def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.TbPosicao set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1845,9 +2096,9 @@ def Alterar_TbPosicao(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros no EndPoint TbProdutoTipo
-@app.route("/TbProdutoTipo")
-def get_TbProdutoTipo():
-    resultado = Selecionar_VwTbProdutoTipo()
+@app.route("/TbProdutoTipo/<codigo>")
+def get_TbProdutoTipo(codigo):
+    resultado = Selecionar_VwTbProdutoTipo(codigo)
     return resultado
 
 #FIM DA FUNÇÃO
@@ -1874,14 +2125,14 @@ def post_TbProdutoTipo():
     nrChip = payload ['nrChip']
     StatusDispositivo = payload ['StatusDispositivo']
     Inserir_VwTbProdutoTipo(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, cdStatus, cdDispositivo, dsDispositivo, dsModelo, DescDispositivo, dsObs, dsLayout, nrChip, StatusDispositivo)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
 
 #Deletar registros da tabela DbIntelliMetrics.VwTbProdutoTipo
 def deletar_VwTbProdutoTipo(Campo, Dado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     cursor = conexao.cursor(dictionary=True)
     comando = f'delete from DbIntelliMetrics.VwTbProdutoTipo where {Campo}="{Dado}"  '
     cursor.execute(comando)
@@ -1891,7 +2142,7 @@ def deletar_VwTbProdutoTipo(Campo, Dado):
 
 #Alterar registros da tabela DbIntelliMetrics.VwTbProdutoTipo
 def Alterar_VwTbProdutoTipo(Campo, Dado, UpCampo, UpDado):
-    conexao = conecta_bd()
+    conexao = pythonProject.conecta_bd()
     comando = f'update DbIntelliMetrics.VwTbProdutoTipo set  {UpCampo}="{UpDado}"  where {Campo}="{Dado}"  '
     cursor.execute(comando)
     conexao.commit()
@@ -1900,24 +2151,54 @@ def Alterar_VwTbProdutoTipo(Campo, Dado, UpCampo, UpDado):
 
 
 #Selecionar registros no EndPoint TbProdutoTotalStaus
-@app.route("/TbProdutoTotalStaus")
-def get_TbProdutoTotalStaus():
-    resultado = Selecionar_VwTbProdutoTotalStaus()
+@app.route("/TbProdutoTotalStaus/<codigo>")
+def get_TbProdutoTotalStaus(codigo):
+    resultado = Selecionar_VwTbProdutoTotalStaus(codigo)
     return resultado
 
 #FIM DA FUNÇÃO
 
 #Selecionar registros no EndPoint TbProdutoTotalStaus
-@app.route("/TbProdutoTotal")
-def get_TbProdutoTotal():
-    resultado = Selecionar_VwTbProdutoTotal()
+
+img = {"Imagens":[]}
+status = {"Status":[]}
+produto = {"Produto":[]}
+resultado = []
+#alunos = {"alunos": []}
+@app.route("/TbProdutoTotal/<codigo>")
+def get_TbProdutoTotal(codigo):
+
+    #resultado = Selecionar_VwTbProdutoTotal(codigo)
+    produto["Produto"] = Selecionar_VwTbProdutoTotal(codigo)
+    status["Status"] = Selecionar_VwTbProdutoTotalStaus(codigo)
+    img["Imagens"] = Selecionar_TbImagens(codigo)
+    resultado.append(produto)
+    resultado.append(status)
+    resultado.append(img)
+    return resultado
+
+#FIM DA FUNÇÃO
+
+#https://replit.taxidigital.net/TbPosicaoAtual
+
+
+#Selecionar registros no EndPoint TbPosicaoAtual
+@app.route("/TbPosicaoAtual")
+def get_TbPosicaoAtual():
+    resultado = Selecionar_VwTbPosicaoAtual()
     return resultado
 
 #FIM DA FUNÇÃO
 
 
+
+
+
+
+
+
 #Inserir registros no EndPoint TbProdutoTotalStaus
-@app.route('/TbProdutoTotalStaus', methods=['POST'])
+@app.route('/TbProdutoTotalStaus/', methods=['POST'])
 def post_TbProdutoTotalStaus():
     payload = request.get_json()
     dsNome = payload ['dsNome']
@@ -1929,8 +2210,41 @@ def post_TbProdutoTotalStaus():
     Status = payload ['Status']
     nrQtde = payload ['nrQtde']
     Inserir_VwTbProdutoTotalStaus(dsNome, dsDescricao, nrCodigo, nrLarg, nrComp, nrAlt, Status, nrQtde)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
+
+#https://replit.taxidigital.net/Funcionario
+
+
+#Selecionar registros no EndPoint Funcionario
+@app.route("/Funcionario")
+def get_Funcionario():
+    resultado = Selecionar_TbFuncionario()
+    return resultado
+
+#FIM DA FUNÇÃO
+
+
+
+#Inserir registros no EndPoint Funcionario
+@app.route('/Funcionario', methods=['POST'])
+def post_Funcionario():
+    payload = request.get_json()
+    dsBairro = payload ['dsBairro']
+    dsCidade = payload ['dsCidade']
+    dsComplemento = payload ['dsComplemento']
+    dsFuncao = payload ['dsFuncao']
+    dsLogradouro = payload ['dsLogradouro']
+    dsNomeEmpregado = payload ['dsNomeEmpregado']
+    dsNumCasa = payload ['dsNumCasa']
+    dsUser = payload ['dsUser']
+    dtRegistro = payload ['dtRegistro']
+    nrCodEmpregado = payload ['nrCodEmpregado']
+    TbFuncionariocol = payload ['TbFuncionariocol']
+    Inserir_TbFuncionario(dsBairro, dsCidade, dsComplemento, dsFuncao, dsLogradouro, dsNomeEmpregado, dsNumCasa, dsUser, dtRegistro, nrCodEmpregado, TbFuncionariocol)
+    return payload
+#FIM DA FUNÇÃO
+
 
 
 
@@ -1951,7 +2265,7 @@ def post_Foto():
     photo_data = base64.b64decode(imgFoto)
     with open(dsFoto, "wb") as fh:
         fh.write(photo_data)
-    return "Cadastramento realizado com sucesso"
+    return payload
 #FIM DA FUNÇÃO
 
 
@@ -1959,12 +2273,46 @@ def post_Foto():
 def CadastraImgProduto():
 
     file = request.files['arquivo']
-
-    pathfile = ( file.filename)
+    pathfile = (file.filename)
+    cdProduto = pathfile.split("-")[0]
+    nrImagem = pathfile.split("-")[1]
+    nrImagem = nrImagem.split(".")[0]
     file.save(pathfile)
     upload_file(pathfile, "dbfilesintellimetrics", "produtos/"+pathfile)
     os.remove(pathfile)
-    return "Cadastramento realizado com sucesso"
+    Inserir_TbImagens("produtos/", pathfile, "10", "TESTE", datetime.datetime.now(), cdProduto, nrImagem)
+    return pathfile
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    # Verifica se há algum arquivo enviado na requisição
+    if 'images' not in request.files:
+        return 'Nenhum arquivo enviado', 400
+
+    # Obtém a lista de arquivos enviados
+    images = request.files.getlist('images')
+
+    # Percorre a lista de arquivos
+    for image in images:
+        # Verifica se o arquivo é uma imagem válida
+        if image.filename == '':
+            return 'Nome de arquivo inválido', 400
+        if not allowed_file(image.filename):
+            return 'Tipo de arquivo inválido', 400
+
+        # Grava a imagem no S3
+        client = boto3.client('s3')
+        client.upload_fileobj(image, 'dbfilesintellimetrics/produtos', image.filename)
+
+    return 'Upload realizado com sucesso'
+
+# Função auxiliar para verificar o tipo de arquivo permitido
+def allowed_file(filename):
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+    #return "Cadastro ok "
 
 
 @app.route('/Assinada', methods=['POST'])
@@ -1974,6 +2322,16 @@ def Assinada():
     result = assinar_arquivo(arquivo)
     return result
 
+#Selecionar_NrImagensMaior
+
+@app.route("/NrImagensMaior/<codigo>")
+def get_NrImagensMaior(codigo):
+    resultado = Selecionar_NrImagensMaior(codigo)
+    return resultado
+
+#https://replit.taxidigital.net/AcessoIntelBras
+
+
 
 
 
@@ -1981,7 +2339,7 @@ def Assinada():
 #app.run(host="0.0.0.0")  # coloca o site no ar#
 
 def main():
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 80))
     app.run(host="192.168.15.200", port=port)
 
 
