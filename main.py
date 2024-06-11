@@ -11,7 +11,7 @@ import os
 import ast
 import time
 
-import pythonProject
+#import pythonProject
 from Ponto.ponto import ponto_blueprint
 
 
